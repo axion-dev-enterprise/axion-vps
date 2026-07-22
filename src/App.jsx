@@ -34,17 +34,55 @@ import {
   ArrowUpRight,
   CheckCircle2,
   XCircle,
-  Search
+  Search,
+  ShoppingCart,
+  DollarSign,
+  UserCheck,
+  Sparkles,
+  CreditCard,
+  Building2,
+  ServerOff,
+  SlidersHorizontal,
+  HelpCircle,
+  MessageSquare
 } from 'lucide-react';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('overview');
-  const [copied, setCopied] = useState(false);
-  const [vpsStatus, setVpsStatus] = useState('ONLINE');
-  const [isRebooting, setIsRebooting] = useState(false);
+  // Navigation & View State
+  const [viewMode, setViewMode] = useState('store'); // 'store' | 'my-servers' | 'monitor'
+  const [billingCycle, setBillingCycle] = useState('annual'); // 'monthly' | 'annual'
+  const [selectedEngine, setSelectedEngine] = useState('hostinger'); // 'hostinger' | 'serverspace'
+  const [selectedOS, setSelectedOS] = useState('debian');
+  const [selectedRegion, setSelectedRegion] = useState('br');
+  const [selectedPlan, setSelectedPlan] = useState(null);
+  
+  // Checkout & Provisioning Modals
+  const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+  const [isProvisioning, setIsProvisioning] = useState(false);
+  const [provisionStep, setProvisionStep] = useState(1);
+  const [provisionedCredentials, setProvisionedCredentials] = useState(null);
+
+  // General State
+  const [copiedText, setCopiedText] = useState(null);
   const [toastMessage, setToastMessage] = useState(null);
 
-  // Terminal state
+  // Purchased Servers List (Client Portal)
+  const [myServers, setMyServers] = useState([
+    {
+      id: 'vps-us-east-1',
+      name: 'Debian Primary Node (Produção)',
+      ip: '104.207.81.41',
+      plan: 'VPS Performance (2 vCPU / 4 GB)',
+      os: 'Debian 12 Bookworm',
+      engine: 'Hostinger Cloud',
+      region: 'EUA (US-East)',
+      status: 'ONLINE',
+      uptime: '99.98%',
+      rootPass: 'AxionCloud2026!Sec'
+    }
+  ]);
+
+  // Terminal state (for Monitor Mode)
   const [terminalHistory, setTerminalHistory] = useState([
     { text: 'AXION VPS Cloud OS v4.19.2 (Debian GNU/Linux 12 bookworm x86_64)', type: 'system' },
     { text: 'Conectado em root@104.207.81.41 via SSH seguro (Porta 22)', type: 'system' },
@@ -55,38 +93,116 @@ export default function App() {
 
   // Auto scroll terminal
   useEffect(() => {
-    terminalEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [terminalHistory]);
+    if (viewMode === 'monitor') {
+      terminalEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [terminalHistory, viewMode]);
 
   const showToast = (msg) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 4000);
   };
 
-  const copyToClipboard = (text) => {
+  const handleCopy = (text, label) => {
     navigator.clipboard.writeText(text);
-    setCopied(true);
-    showToast('IP copiado para a área de transferência!');
-    setTimeout(() => setCopied(false), 2500);
+    setCopiedText(label);
+    showToast(`${label} copiado para a área de transferência!`);
+    setTimeout(() => setCopiedText(null), 2500);
   };
 
-  const handleReboot = () => {
-    setIsRebooting(true);
-    setVpsStatus('REBOOTING');
-    showToast('Iniciando reinicialização da VPS Debian Primary...');
-    
+  // Plans Config
+  const PLANS = [
+    {
+      id: 'starter',
+      name: 'VPS Starter',
+      badge: 'Ideal para MVPs & Bots',
+      cpu: '1 vCPU AMD',
+      ram: '2 GB RAM NVMe',
+      disk: '50 GB SSD',
+      bandwidth: '2 TB Tráfego',
+      monthlyPrice: 39,
+      annualPrice: 31,
+      popular: false,
+      icon: Cpu,
+      features: ['IPv4 Dedicado incluso', 'Firewall UFW Ativo', 'Snapshots semanais', 'Suporte AXION 24/7']
+    },
+    {
+      id: 'performance',
+      name: 'VPS Performance',
+      badge: 'MAIS VENDIDO',
+      cpu: '2 vCPU AMD EPYC',
+      ram: '4 GB RAM NVMe',
+      disk: '80 GB SSD',
+      bandwidth: '4 TB Tráfego',
+      monthlyPrice: 79,
+      annualPrice: 63,
+      popular: true,
+      icon: Zap,
+      features: ['DDoS Protection 100 Gbps', 'WireGuard VPN nativa', 'Backup diário automatizado', 'Painel de Reboot em 1-clique']
+    },
+    {
+      id: 'enterprise',
+      name: 'VPS Enterprise Pro',
+      badge: 'Alta Performance',
+      cpu: '4 vCPU AMD EPYC',
+      ram: '8 GB RAM NVMe',
+      disk: '160 GB SSD',
+      bandwidth: '8 TB Tráfego',
+      monthlyPrice: 159,
+      annualPrice: 127,
+      popular: false,
+      icon: Shield,
+      features: ['Recursos 100% Dedicados', 'SLA Garantido de 99.98%', 'Suporte Telefônico Prioritário', 'Migração de Dados Gratuita']
+    },
+    {
+      id: 'dedicated',
+      name: 'VPS Dedicated Max',
+      badge: 'Máxima Capacidade',
+      cpu: '8 vCPU AMD EPYC',
+      ram: '16 GB RAM NVMe',
+      disk: '320 GB SSD',
+      bandwidth: '16 TB Tráfego',
+      monthlyPrice: 299,
+      annualPrice: 239,
+      popular: false,
+      icon: Server,
+      features: ['Hardware Bare-Metal Isulados', 'Arquiteto de Nuvem Dedicado', 'Redundância Multi-Region', 'Relatório mensal de auditoria']
+    }
+  ];
+
+  // Initiate Purchase Flow
+  const handleOpenCheckout = (plan) => {
+    setSelectedPlan(plan);
+    setIsCheckoutOpen(true);
+  };
+
+  // Start Provisioning Sequence
+  const handleConfirmPayment = () => {
+    setIsCheckoutOpen(false);
+    setIsProvisioning(true);
+    setProvisionStep(1);
+
+    // Simulate Step-by-Step Auto-Provisioning Pipeline
+    setTimeout(() => setProvisionStep(2), 2000);
+    setTimeout(() => setProvisionStep(3), 4000);
     setTimeout(() => {
-      setIsRebooting(false);
-      setVpsStatus('ONLINE');
-      showToast('VPS reinicializada com sucesso! Todos os serviços estão UP.');
-    }, 4000);
-  };
-
-  const handleTerminalSubmit = (e) => {
-    e.preventDefault();
-    if (!terminalInput.trim()) return;
-    executeCommand(terminalInput.trim());
-    setTerminalInput('');
+      setProvisionStep(4);
+      const newIp = `151.244.${Math.floor(Math.random() * 200)}.${Math.floor(Math.random() * 250)}`;
+      const newCreds = {
+        id: `vps-auto-${Date.now().toString().slice(-4)}`,
+        name: `AXION VPS ${selectedPlan.name}`,
+        ip: newIp,
+        plan: selectedPlan.name,
+        os: selectedOS === 'debian' ? 'Debian 12 Bookworm' : selectedOS === 'ubuntu' ? 'Ubuntu 24.04 LTS' : 'AlmaLinux 9',
+        engine: selectedEngine === 'hostinger' ? 'Hostinger Cloud' : 'ServerSpace Enterprise',
+        region: selectedRegion === 'br' ? 'Brasil (São Paulo)' : selectedRegion === 'us' ? 'EUA (Virginia)' : 'Alemanha (Frankfurt)',
+        status: 'ONLINE',
+        uptime: '100%',
+        rootPass: `AxionCloud#${Math.random().toString(36).slice(-6)}`
+      };
+      setProvisionedCredentials(newCreds);
+      setMyServers(prev => [newCreds, ...prev]);
+    }, 6500);
   };
 
   const executeCommand = (cmd) => {
@@ -114,52 +230,18 @@ export default function App() {
         { text: 'CONTAINER ID   IMAGE                 STATUS         PORTS', type: 'output' },
         { text: 'a8f912c019d4   traefik:v2.10         Up 14 days     0.0.0.0:80->80/tcp, 0.0.0.0:443->443/tcp', type: 'output' },
         { text: 'f391b4910e11   louislam/uptime-kuma  Up 14 days     0.0.0.0:3002->3001/tcp', type: 'output' },
-        { text: 'c102a99182bb   wireguard:latest      Up 14 days     0.0.0.0:51820->51820/udp', type: 'output' },
-        { text: '992a01f92e10   axion-core-api:1.4    Up 3 days      0.0.0.0:3000->3000/tcp', type: 'output' }
+        { text: 'c102a99182bb   wireguard:latest      Up 14 days     0.0.0.0:51820->51820/udp', type: 'output' }
       ];
     } else if (cleanCmd === 'htop') {
       responseLines = [
         { text: '  CPU[||||||||||||.............. 28.4%]    Tasks: 42 total, 1 running', type: 'output' },
         { text: '  Mem[||||||||||||||||.......... 819M/2.00G] Swp[0K/0K]', type: 'output' },
         { text: '  PID USER      PR  NI    VIRT    RES    SHR S  %CPU  %MEM     TIME+ COMMAND', type: 'output' },
-        { text: ' 1042 root      20   0  712400  18200  12400 S   4.2   0.9  18:42.10 traefik', type: 'output' },
-        { text: ' 2109 root      20   0  982100  34200  21000 S   2.1   1.7  09:12.44 uptime-kuma', type: 'output' },
-        { text: ' 3180 axion     20   0  412000  51200  28100 S   1.8   2.5  44:01.12 node server.js', type: 'output' }
-      ];
-    } else if (cleanCmd === 'netstat' || cleanCmd === 'netstat -tulpn') {
-      responseLines = [
-        { text: 'Active Internet connections (only servers)', type: 'output' },
-        { text: 'Proto Recv-Q Send-Q Local Address           Foreign Address         State       PID/Program name', type: 'output' },
-        { text: 'tcp        0      0 0.0.0.0:80              0.0.0.0:*               LISTEN      1042/traefik', type: 'output' },
-        { text: 'tcp        0      0 0.0.0.0:443             0.0.0.0:*               LISTEN      1042/traefik', type: 'output' },
-        { text: 'tcp        0      0 0.0.0.0:3000            0.0.0.0:*               LISTEN      3180/node', type: 'output' },
-        { text: 'tcp        0      0 0.0.0.0:3002            0.0.0.0:*               LISTEN      2109/node', type: 'output' },
-        { text: 'udp        0      0 0.0.0.0:51820           0.0.0.0:*                           1102/wireguard', type: 'output' }
-      ];
-    } else if (cleanCmd === 'df -h') {
-      responseLines = [
-        { text: 'Filesystem      Size  Used Avail Use% Mounted on', type: 'output' },
-        { text: '/dev/nvme0n1p1   25G  6.8G   17G  29% /', type: 'output' },
-        { text: 'tmpfs           990M     0  990M   0% /dev/shm', type: 'output' },
-        { text: '/dev/nvme0n1p15 105M  6.1M   99M   6% /boot/efi', type: 'output' }
-      ];
-    } else if (cleanCmd === 'ufw status') {
-      responseLines = [
-        { text: 'Status: active', type: 'output' },
-        { text: 'To                         Action      From', type: 'output' },
-        { text: '--                         ------      ----', type: 'output' },
-        { text: '22/tcp (SSH)               ALLOW       Anywhere', type: 'output' },
-        { text: '80/tcp (HTTP)              ALLOW       Anywhere', type: 'output' },
-        { text: '443/tcp (HTTPS)            ALLOW       Anywhere', type: 'output' },
-        { text: '51820/udp (WireGuard)      ALLOW       Anywhere', type: 'output' }
-      ];
-    } else if (cleanCmd === 'uptime') {
-      responseLines = [
-        { text: ' 05:47:32 up 42 days, 18:14,  1 user,  load average: 0.03, 0.03, 0.06', type: 'output' }
+        { text: ' 1042 root      20   0  712400  18200  12400 S   4.2   0.9  18:42.10 traefik', type: 'output' }
       ];
     } else {
       responseLines = [
-        { text: `bash: ${cmd}: command not found. Digite "help" para ver os comandos.`, type: 'error' }
+        { text: `bash: ${cmd}: command not found. Digite "help" para ver a lista de comandos.`, type: 'error' }
       ];
     }
 
@@ -169,7 +251,8 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#030508] text-[#F1F5F9] font-sans flex flex-col">
+    <div className="min-h-screen bg-[#030508] text-[#F1F5F9] font-sans flex flex-col selection:bg-cyan-500/20 selection:text-cyan-300">
+      
       {/* Toast Notification */}
       {toastMessage && (
         <div className="fixed bottom-6 right-6 z-50 bg-[#0F172A] border border-cyan-500/40 text-cyan-200 px-4 py-3 rounded-lg shadow-2xl flex items-center gap-3 animate-bounce">
@@ -178,11 +261,13 @@ export default function App() {
         </div>
       )}
 
-      {/* Top Header */}
+      {/* Top Header & Navigation */}
       <header className="border-b border-[#151D2A] bg-[#080C14]/90 backdrop-blur-md sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-cyan-500/20">
+          
+          {/* Logo & Brand */}
+          <div className="flex items-center gap-4 cursor-pointer" onClick={() => setViewMode('store')}>
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 via-indigo-600 to-emerald-500 flex items-center justify-center shadow-lg shadow-cyan-500/20">
               <Server className="w-5 h-5 text-white" />
             </div>
             <div>
@@ -190,609 +275,704 @@ export default function App() {
                 <span className="font-extrabold text-lg tracking-tight bg-gradient-to-r from-white via-slate-200 to-cyan-400 bg-clip-text text-transparent">
                   AXION VPS
                 </span>
-                <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 font-semibold">
-                  Enterprise Cloud
+                <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 font-bold">
+                  Cloud Platform
                 </span>
               </div>
-              <p className="text-xs text-slate-400 flex items-center gap-2">
-                <span>us-east-1 (N. Virginia)</span>
-                <span>•</span>
-                <span className="font-mono text-slate-300">104.207.81.41</span>
-              </p>
+              <p className="text-[11px] text-slate-400">Infraestrutura Hostinger & ServerSpace Enterprise</p>
             </div>
           </div>
 
+          {/* Center Mode Switcher Tabs */}
+          <div className="hidden md:flex items-center gap-1 p-1 bg-[#0D1525] border border-slate-800 rounded-xl">
+            <button
+              onClick={() => setViewMode('store')}
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition ${
+                viewMode === 'store'
+                  ? 'bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/20'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <ShoppingCart className="w-3.5 h-3.5" />
+              <span>Loja & Planos VPS</span>
+            </button>
+
+            <button
+              onClick={() => setViewMode('my-servers')}
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition ${
+                viewMode === 'my-servers'
+                  ? 'bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/20'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <UserCheck className="w-3.5 h-3.5" />
+              <span>Meus Servidores ({myServers.length})</span>
+            </button>
+
+            <button
+              onClick={() => setViewMode('monitor')}
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition ${
+                viewMode === 'monitor'
+                  ? 'bg-indigo-600 text-white shadow-md'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Activity className="w-3.5 h-3.5" />
+              <span>Monitor de Nós (vps1)</span>
+            </button>
+          </div>
+
+          {/* Right Action & WhatsApp Button */}
           <div className="flex items-center gap-3">
-            {/* Server Status Badge */}
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#0D1525] border border-[#1E293B]">
-              <span className={`w-2.5 h-2.5 rounded-full ${
-                vpsStatus === 'ONLINE' ? 'bg-emerald-500 animate-pulse' :
-                vpsStatus === 'REBOOTING' ? 'bg-amber-500 animate-ping' : 'bg-rose-500'
-              }`} />
-              <span className="text-xs font-mono font-bold tracking-wider text-slate-200 uppercase">
-                {vpsStatus}
-              </span>
-            </div>
-
-            {/* IP Quick Copy Button */}
-            <button
-              onClick={() => copyToClipboard('104.207.81.41')}
-              className="flex items-center gap-1.5 text-xs font-mono px-3 py-1.5 rounded-lg bg-[#0F172A] border border-slate-800 hover:border-cyan-500/50 hover:text-cyan-400 transition"
-              title="Copiar IP da VPS"
+            <a
+              href="https://wa.me/5511924765169?text=Ol%C3%A1!%20Gostaria%20de%20d%C3%BAvidas%20sobre%20os%20planos%20VPS%20AXION."
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center gap-1.5 text-xs font-medium px-3.5 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 transition"
             >
-              {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5 text-slate-400" />}
-              <span>104.207.81.41</span>
-            </button>
+              <MessageSquare className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Suporte 24/7</span>
+            </a>
 
-            {/* Reboot Action */}
             <button
-              onClick={handleReboot}
-              disabled={isRebooting}
-              className="flex items-center gap-1.5 text-xs font-medium px-3.5 py-1.5 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-300 hover:bg-rose-500/20 transition disabled:opacity-50"
+              onClick={() => showToast('Login AXION Auth ativo. Bem-vindo(a)!')}
+              className="flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-[#0F172A] border border-slate-800 text-slate-300 hover:border-cyan-500/50 hover:text-white transition text-xs font-medium"
             >
-              <RotateCw className={`w-3.5 h-3.5 ${isRebooting ? 'animate-spin' : ''}`} />
-              <span>{isRebooting ? 'Reiniciando...' : 'Reboot VPS'}</span>
+              <div className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+              <span>AXION Account</span>
             </button>
           </div>
+
         </div>
       </header>
 
-      {/* Main Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-        
-        {/* Metric Cards Banner */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="glass-panel p-4 rounded-xl border border-slate-800/80 flex items-center justify-between">
-            <div>
-              <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">Processador vCPU</p>
-              <p className="text-xl font-mono font-bold text-white mt-1">1 Core <span className="text-xs font-normal text-slate-400">(AMD EPYC)</span></p>
-              <div className="w-full bg-slate-800 h-1.5 rounded-full mt-2 overflow-hidden">
-                <div className="bg-cyan-500 h-full w-[28%]" />
-              </div>
+      {/* VIEW MODE 1: VPS STORE & CONFIGURATOR */}
+      {viewMode === 'store' && (
+        <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-12 animate-fadeIn">
+          
+          {/* Hero Banner */}
+          <div className="glass-panel-glow p-8 sm:p-12 rounded-3xl relative overflow-hidden text-center max-w-4xl mx-auto space-y-6">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 font-mono text-xs font-semibold">
+              <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+              <span>PROVISIONAMENTO CLOUD AUTÔNOMO EM &lt; 60 SEGUNDOS</span>
             </div>
-            <div className="p-2.5 rounded-lg bg-cyan-500/10 text-cyan-400">
-              <Cpu className="w-6 h-6" />
+
+            <h1 className="text-3xl sm:text-5xl font-extrabold text-white tracking-tight leading-tight">
+              Servidores Cloud VPS de Alta Performance com <span className="bg-gradient-to-r from-cyan-400 via-indigo-400 to-emerald-400 bg-clip-text text-transparent">SSD NVMe & Proteção DDoS</span>
+            </h1>
+
+            <p className="text-slate-300 text-sm sm:text-base max-w-2xl mx-auto leading-relaxed">
+              Desenvolvido para escalar aplicações, bancos de dados, microsserviços e contêineres Docker na infraestrutura robusta da **Hostinger** e **ServerSpace**.
+            </p>
+
+            <div className="flex flex-wrap items-center justify-center gap-6 text-xs text-slate-400 font-mono pt-2">
+              <div className="flex items-center gap-1.5">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                <span>99.98% SLA Garantido</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                <span>Endereço IP Dedicado IPv4</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                <span>Pagamento via PIX & Cartão</span>
+              </div>
             </div>
           </div>
 
-          <div className="glass-panel p-4 rounded-xl border border-slate-800/80 flex items-center justify-between">
-            <div>
-              <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">Memória RAM</p>
-              <p className="text-xl font-mono font-bold text-white mt-1">819 MB / <span className="text-sm font-normal text-slate-400">2.0 GB</span></p>
-              <div className="w-full bg-slate-800 h-1.5 rounded-full mt-2 overflow-hidden">
-                <div className="bg-emerald-500 h-full w-[41%]" />
-              </div>
-            </div>
-            <div className="p-2.5 rounded-lg bg-emerald-500/10 text-emerald-400">
-              <Radio className="w-6 h-6" />
-            </div>
-          </div>
-
-          <div className="glass-panel p-4 rounded-xl border border-slate-800/80 flex items-center justify-between">
-            <div>
-              <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">Disco NVMe SSD</p>
-              <p className="text-xl font-mono font-bold text-white mt-1">6.8 GB / <span className="text-sm font-normal text-slate-400">25 GB</span></p>
-              <div className="w-full bg-slate-800 h-1.5 rounded-full mt-2 overflow-hidden">
-                <div className="bg-indigo-500 h-full w-[29%]" />
-              </div>
-            </div>
-            <div className="p-2.5 rounded-lg bg-indigo-500/10 text-indigo-400">
-              <HardDrive className="w-6 h-6" />
-            </div>
-          </div>
-
-          <div className="glass-panel p-4 rounded-xl border border-slate-800/80 flex items-center justify-between">
-            <div>
-              <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">Tráfego de Rede</p>
-              <p className="text-xl font-mono font-bold text-white mt-1">142.5 GB / <span className="text-sm font-normal text-slate-400">2.0 TB</span></p>
-              <div className="w-full bg-slate-800 h-1.5 rounded-full mt-2 overflow-hidden">
-                <div className="bg-violet-500 h-full w-[7%]" />
-              </div>
-            </div>
-            <div className="p-2.5 rounded-lg bg-violet-500/10 text-violet-400">
-              <Wifi className="w-6 h-6" />
-            </div>
-          </div>
-        </div>
-
-        {/* Navigation Tabs */}
-        <div className="flex items-center gap-2 border-b border-[#151D2A] pb-2 overflow-x-auto">
-          {[
-            { id: 'overview', label: 'Visão Geral & Serviços', icon: Server },
-            { id: 'instances', label: 'Instâncias & Hardware', icon: Cpu },
-            { id: 'terminal', label: 'Terminal SSH Web', icon: Terminal },
-            { id: 'security', label: 'Segurança & WireGuard', icon: Shield },
-            { id: 'backups', label: 'Backups & Snapshots', icon: HardDrive },
-            { id: 'apikeys', label: 'Chaves SSH & API', icon: Key },
-          ].map(tab => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap ${
-                  isActive
-                    ? 'bg-cyan-500/10 border border-cyan-500/40 text-cyan-300 shadow-sm'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-[#0F172A]'
-                }`}
-              >
-                <Icon className={`w-4 h-4 ${isActive ? 'text-cyan-400' : 'text-slate-500'}`} />
-                <span>{tab.label}</span>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* TAB 1: OVERVIEW */}
-        {activeTab === 'overview' && (
-          <div className="space-y-6 animate-fadeIn">
-            {/* Primary Instance Highlight Card */}
-            <div className="glass-panel-glow p-6 rounded-2xl relative overflow-hidden">
-              <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none">
-                <Server className="w-64 h-64 text-cyan-400" />
-              </div>
-
-              <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-                <div className="space-y-2">
-                  <div className="flex items-center gap-3">
-                    <span className="px-2.5 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-mono text-xs font-semibold">
-                      DEBIAN 12 BOOKWORM
-                    </span>
-                    <span className="text-xs text-slate-400 font-mono">Uptime: 42d 18h 14m</span>
-                  </div>
-                  <h2 className="text-2xl font-bold text-white tracking-tight">Debian Primary VPS Node</h2>
-                  <p className="text-sm text-slate-400 max-w-xl">
-                    Servidor mestre de infraestrutura cloud executando Traefik, monitores de alta disponibilidade, túnel seguro WireGuard e microsserviços AXION.
-                  </p>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-3">
-                  <button
-                    onClick={() => setActiveTab('terminal')}
-                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-cyan-500 text-slate-950 font-semibold text-sm hover:bg-cyan-400 transition shadow-lg shadow-cyan-500/25"
-                  >
-                    <Terminal className="w-4 h-4" />
-                    <span>Abrir Web Console</span>
-                  </button>
-                  <button
-                    onClick={() => showToast('Atualizando métricas de telemetria...')}
-                    className="p-2.5 rounded-lg bg-[#0F172A] border border-slate-800 text-slate-300 hover:text-white hover:border-slate-700 transition"
-                  >
-                    <RefreshCw className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Active Microservices Matrix */}
-            <div>
-              <div className="flex items-center justify-between mb-4">
+          {/* Interactive Infrastructure Engine & OS Selector Banner */}
+          <div className="glass-panel p-6 rounded-2xl border border-slate-800 space-y-6">
+            <div className="flex items-center justify-between border-b border-slate-800/80 pb-4">
+              <div>
                 <h3 className="text-base font-bold text-white flex items-center gap-2">
-                  <Layers className="w-5 h-5 text-cyan-400" />
-                  <span>Matriz de Serviços & Ingress Proxy</span>
+                  <SlidersHorizontal className="w-4 h-4 text-cyan-400" />
+                  <span>Configurador Personalizado da VPS</span>
                 </h3>
-                <span className="text-xs font-mono text-slate-400">4 de 4 serviços rodando normalmente</span>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {[
-                  { name: 'Traefik Proxy', port: '443 / 80', status: 'RUNNING', desc: 'Ingress & SSL Auto Certs', color: 'cyan' },
-                  { name: 'Uptime Kuma', port: '3002', status: 'RUNNING', desc: 'Monitoramento de SLA', color: 'emerald' },
-                  { name: 'Wireguard VPN', port: '51820', status: 'RUNNING', desc: 'Túnel UDP Encriptado', color: 'violet' },
-                  { name: 'AXION Core Services', port: '3000', status: 'RUNNING', desc: 'API Gateway & Backends', color: 'indigo' },
-                ].map((svc, i) => (
-                  <div key={i} className="glass-panel p-4 rounded-xl border border-slate-800 hover:border-slate-700 transition flex flex-col justify-between space-y-3">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <h4 className="font-bold text-white text-sm">{svc.name}</h4>
-                        <p className="text-xs text-slate-400 mt-0.5">{svc.desc}</p>
-                      </div>
-                      <span className="flex h-2.5 w-2.5 relative">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
-                      </span>
-                    </div>
-
-                    <div className="flex items-center justify-between text-xs pt-2 border-t border-slate-800/80 font-mono">
-                      <span className="text-slate-400">Porta: {svc.port}</span>
-                      <span className="text-emerald-400 font-bold">{svc.status}</span>
-                    </div>
-                  </div>
-                ))}
+                <p className="text-xs text-slate-400">Escolha o motor de nuvem, sistema operacional e região do datacenter.</p>
               </div>
             </div>
 
-            {/* Audit & System Telemetry Log Stream */}
-            <div className="glass-panel p-5 rounded-xl border border-slate-800">
-              <h3 className="text-sm font-bold text-white mb-3 flex items-center gap-2">
-                <FileText className="w-4 h-4 text-slate-400" />
-                <span>Log de Eventos do Kernel & Sistema Autônomo</span>
-              </h3>
-              <div className="font-mono text-xs space-y-1.5 text-slate-300 bg-[#04070D] p-3.5 rounded-lg border border-slate-900 overflow-x-auto">
-                <p className="text-emerald-400">[2026-07-22 05:47:30] [SYSTEM] Backup automático de dados executado com sucesso (SHA256: 8f92a10c...)</p>
-                <p className="text-cyan-400">[2026-07-22 05:30:12] [TRAEFIK] Renovação de certificado Let's Encrypt para *.axionenterprise.cloud completa.</p>
-                <p className="text-slate-400">[2026-07-22 05:15:00] [FIREWALL] Bloqueadas 14 tentativas desautorizadas de scan de porta na porta 22 (SSH).</p>
-                <p className="text-slate-400">[2026-07-22 04:00:05] [HEARTBEAT] Healthcheck respondido com 200 OK (0.002s response time).</p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* TAB 2: INSTANCES */}
-        {activeTab === 'instances' && (
-          <div className="space-y-6 animate-fadeIn">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-bold text-white">Instâncias VPS Cloud</h3>
-                <p className="text-xs text-slate-400">Gerencie a capacidade computacional, sistemas operacionais e escala de hardware.</p>
-              </div>
-              <button
-                onClick={() => showToast('Abertura de provisionamento instantâneo de novas instâncias...')}
-                className="flex items-center gap-2 px-3.5 py-2 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 hover:bg-cyan-500/20 text-xs font-semibold transition"
-              >
-                <Plus className="w-4 h-4" />
-                <span>Provisionar Nova VPS</span>
-              </button>
-            </div>
-
-            <div className="glass-panel rounded-xl border border-slate-800 overflow-hidden">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-[#0D1525] text-slate-400 uppercase font-mono border-b border-slate-800">
-                  <tr>
-                    <th className="p-4">Instância</th>
-                    <th className="p-4">IP Público</th>
-                    <th className="p-4">vCPU / RAM</th>
-                    <th className="p-4">Armazenamento</th>
-                    <th className="p-4">Status</th>
-                    <th className="p-4 text-right">Ações</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-800/60 font-mono text-slate-300">
-                  <tr className="hover:bg-slate-900/50 transition">
-                    <td className="p-4 font-sans font-semibold text-white">
-                      <div>Debian Primary VPS</div>
-                      <span className="text-[10px] text-slate-500 font-mono">ID: vps-us-east-1</span>
-                    </td>
-                    <td className="p-4 text-cyan-400">104.207.81.41</td>
-                    <td className="p-4">1 vCPU AMD / 2 GB</td>
-                    <td className="p-4">25 GB NVMe SSD</td>
-                    <td className="p-4">
-                      <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-bold">
-                        ONLINE
-                      </span>
-                    </td>
-                    <td className="p-4 text-right space-x-2">
-                      <button
-                        onClick={handleReboot}
-                        className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 transition font-sans text-xs"
-                      >
-                        Reboot
-                      </button>
-                      <button
-                        onClick={() => setActiveTab('terminal')}
-                        className="px-2.5 py-1 rounded bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20 transition font-sans text-xs"
-                      >
-                        Console
-                      </button>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-
-            {/* Scale Hardware Simulator Card */}
-            <div className="glass-panel p-6 rounded-xl border border-slate-800 space-y-4">
-              <h4 className="text-sm font-bold text-white flex items-center gap-2">
-                <Sliders className="w-4 h-4 text-cyan-400" />
-                <span>Simulador de Upgrade de Recursos em Tempo Real</span>
-              </h4>
-              <p className="text-xs text-slate-400">Dimensione vCPUs e Memória RAM sem interrupção de serviço (Hot-plugging RAM & vCPU).</p>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
-                <div className="p-4 bg-[#0A0F1D] rounded-lg border border-slate-800 text-center space-y-2">
-                  <p className="text-xs text-slate-400 uppercase font-mono">Configuração Atual</p>
-                  <p className="text-lg font-bold text-white">1 vCPU / 2 GB RAM</p>
-                  <p className="text-xs text-cyan-400 font-mono">Incluso na assinatura</p>
-                </div>
-                <div className="p-4 bg-[#0A0F1D] rounded-lg border border-slate-800 text-center space-y-2">
-                  <p className="text-xs text-slate-400 uppercase font-mono">Pro Node (Recomendado)</p>
-                  <p className="text-lg font-bold text-white">2 vCPU / 4 GB RAM</p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* Option 1: Infrastructure Engine */}
+              <div className="space-y-2">
+                <label className="text-xs font-mono font-bold text-slate-300 uppercase tracking-wider">Provedor Cloud</label>
+                <div className="grid grid-cols-2 gap-2">
                   <button
-                    onClick={() => showToast('Solicitação de upgrade para Pro Node enviada!')}
-                    className="w-full py-1.5 rounded bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs transition"
+                    onClick={() => setSelectedEngine('hostinger')}
+                    className={`p-3 rounded-xl border text-xs font-semibold flex flex-col items-center gap-1.5 transition ${
+                      selectedEngine === 'hostinger'
+                        ? 'bg-cyan-500/10 border-cyan-500 text-cyan-300 shadow-md shadow-cyan-500/10'
+                        : 'bg-[#0A0F1D] border-slate-800 text-slate-400 hover:border-slate-700'
+                    }`}
                   >
-                    Upgrade Instantâneo
+                    <Building2 className="w-5 h-5 text-cyan-400" />
+                    <span>Hostinger Cloud</span>
                   </button>
-                </div>
-                <div className="p-4 bg-[#0A0F1D] rounded-lg border border-slate-800 text-center space-y-2">
-                  <p className="text-xs text-slate-400 uppercase font-mono">Enterprise Node</p>
-                  <p className="text-lg font-bold text-white">4 vCPU / 8 GB RAM</p>
+
                   <button
-                    onClick={() => showToast('Solicitação de upgrade para Enterprise Node enviada!')}
-                    className="w-full py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs transition"
+                    onClick={() => setSelectedEngine('serverspace')}
+                    className={`p-3 rounded-xl border text-xs font-semibold flex flex-col items-center gap-1.5 transition ${
+                      selectedEngine === 'serverspace'
+                        ? 'bg-indigo-500/10 border-indigo-500 text-indigo-300 shadow-md shadow-indigo-500/10'
+                        : 'bg-[#0A0F1D] border-slate-800 text-slate-400 hover:border-slate-700'
+                    }`}
                   >
-                    Solicitar Upgrade
+                    <Server className="w-5 h-5 text-indigo-400" />
+                    <span>ServerSpace NVMe</span>
                   </button>
                 </div>
               </div>
-            </div>
-          </div>
-        )}
 
-        {/* TAB 3: TERMINAL */}
-        {activeTab === 'terminal' && (
-          <div className="space-y-4 animate-fadeIn">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                  <Terminal className="w-5 h-5 text-cyan-400" />
-                  <span>Terminal Web SSH Interativo</span>
-                </h3>
-                <p className="text-xs text-slate-400">Sessão SSH criptografada diretamente na VPS via WebSocket seguro.</p>
-              </div>
-
-              {/* Quick Macro Buttons */}
-              <div className="flex items-center gap-2 overflow-x-auto">
-                {['htop', 'docker ps', 'netstat', 'df -h', 'ufw status', 'uptime'].map(cmd => (
-                  <button
-                    key={cmd}
-                    onClick={() => executeCommand(cmd)}
-                    className="text-xs font-mono px-2.5 py-1 rounded bg-[#0D1525] border border-slate-800 hover:border-cyan-500/50 hover:text-cyan-300 transition text-slate-300"
-                  >
-                    {cmd}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Terminal Window Box */}
-            <div className="bg-[#04070D] border border-slate-800 rounded-xl overflow-hidden shadow-2xl">
-              <div className="bg-[#0D1424] px-4 py-2.5 border-b border-slate-800 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-rose-500/80" />
-                  <div className="w-3 h-3 rounded-full bg-amber-500/80" />
-                  <div className="w-3 h-3 rounded-full bg-emerald-500/80" />
-                  <span className="ml-2 font-mono text-xs text-slate-400">root@axion-vps:~# ssh 104.207.81.41</span>
-                </div>
-                <span className="text-[10px] font-mono px-2 py-0.5 bg-emerald-500/10 text-emerald-400 rounded border border-emerald-500/20">
-                  AES-256 SSH CONNECTED
-                </span>
-              </div>
-
-              <div className="p-4 font-mono text-xs h-96 overflow-y-auto space-y-2 terminal-scanline">
-                {terminalHistory.map((item, idx) => (
-                  <div key={idx} className={
-                    item.type === 'system' ? 'text-slate-500' :
-                    item.type === 'info' ? 'text-cyan-400 font-semibold' :
-                    item.type === 'input' ? 'text-emerald-400 font-bold' :
-                    item.type === 'error' ? 'text-rose-400' : 'text-slate-300'
-                  }>
-                    {item.text}
-                  </div>
-                ))}
-                <div ref={terminalEndRef} />
-              </div>
-
-              <form onSubmit={handleTerminalSubmit} className="p-2 bg-[#080C14] border-t border-slate-800 flex items-center gap-2">
-                <span className="font-mono text-xs text-emerald-400 pl-2">root@axion-vps:~#</span>
-                <input
-                  type="text"
-                  value={terminalInput}
-                  onChange={(e) => setTerminalInput(e.target.value)}
-                  placeholder="Digite um comando bash..."
-                  className="flex-1 bg-transparent text-xs font-mono text-white focus:outline-none placeholder-slate-600"
-                />
-                <button
-                  type="submit"
-                  className="px-3 py-1 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs rounded transition"
+              {/* Option 2: Operating System */}
+              <div className="space-y-2">
+                <label className="text-xs font-mono font-bold text-slate-300 uppercase tracking-wider">Sistema Operacional (SO)</label>
+                <select
+                  value={selectedOS}
+                  onChange={(e) => setSelectedOS(e.target.value)}
+                  className="w-full p-3 rounded-xl bg-[#0A0F1D] border border-slate-800 text-slate-200 text-xs font-mono focus:border-cyan-500 focus:outline-none"
                 >
-                  Enviar
-                </button>
-              </form>
-            </div>
-          </div>
-        )}
+                  <option value="debian">Debian 12 Bookworm (Recomendado)</option>
+                  <option value="ubuntu">Ubuntu 24.04 LTS Server</option>
+                  <option value="almalinux">AlmaLinux 9 (RedHat Enterprise)</option>
+                  <option value="docker">Docker Stack pre-installed</option>
+                  <option value="windows">Windows Server 2022 (+R$ 40/mês)</option>
+                </select>
+              </div>
 
-        {/* TAB 4: SECURITY */}
-        {activeTab === 'security' && (
-          <div className="space-y-6 animate-fadeIn">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Firewall Rules Card */}
-              <div className="glass-panel p-5 rounded-xl border border-slate-800 space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                    <Shield className="w-4 h-4 text-emerald-400" />
-                    <span>Firewall UFW (Regras de Entrada)</span>
-                  </h3>
-                  <span className="text-xs font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">ATIVO</span>
-                </div>
-
-                <div className="space-y-2 font-mono text-xs">
+              {/* Option 3: Datacenter Region */}
+              <div className="space-y-2">
+                <label className="text-xs font-mono font-bold text-slate-300 uppercase tracking-wider">Região do Datacenter</label>
+                <div className="grid grid-cols-3 gap-2">
                   {[
-                    { port: '22 / TCP', service: 'SSH Management', action: 'ALLOW' },
-                    { port: '80 / TCP', service: 'HTTP Web Traffic', action: 'ALLOW' },
-                    { port: '443 / TCP', service: 'HTTPS Traefik SSL', action: 'ALLOW' },
-                    { port: '51820 / UDP', service: 'WireGuard VPN Tunnel', action: 'ALLOW' },
-                  ].map((rule, idx) => (
-                    <div key={idx} className="p-3 bg-[#0A0F1D] rounded border border-slate-800 flex items-center justify-between">
-                      <div>
-                        <span className="text-white font-bold">{rule.port}</span>
-                        <p className="text-[11px] text-slate-400 font-sans">{rule.service}</p>
-                      </div>
-                      <span className="text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded">{rule.action}</span>
-                    </div>
+                    { id: 'br', flag: '🇧🇷', name: 'Brasil' },
+                    { id: 'us', flag: '🇺🇸', name: 'EUA East' },
+                    { id: 'eu', flag: '🇩🇪', name: 'Alemanha' },
+                  ].map(reg => (
+                    <button
+                      key={reg.id}
+                      onClick={() => setSelectedRegion(reg.id)}
+                      className={`p-2.5 rounded-xl border text-xs font-medium flex items-center justify-center gap-1.5 transition ${
+                        selectedRegion === reg.id
+                          ? 'bg-emerald-500/10 border-emerald-500 text-emerald-300'
+                          : 'bg-[#0A0F1D] border-slate-800 text-slate-400 hover:border-slate-700'
+                      }`}
+                    >
+                      <span>{reg.flag}</span>
+                      <span>{reg.name}</span>
+                    </button>
                   ))}
                 </div>
-
-                <button
-                  onClick={() => showToast('Formulário de criação de regras UFW simulado.')}
-                  className="w-full py-2 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition"
-                >
-                  + Adicionar Regra de Porta
-                </button>
               </div>
+            </div>
+          </div>
 
-              {/* WireGuard VPN Configuration Generator */}
-              <div className="glass-panel p-5 rounded-xl border border-slate-800 space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                    <Lock className="w-4 h-4 text-violet-400" />
-                    <span>WireGuard VPN Tunnel</span>
-                  </h3>
-                  <span className="text-xs font-mono text-violet-400 bg-violet-500/10 px-2 py-0.5 rounded border border-violet-500/20">READY</span>
-                </div>
+          {/* Pricing Toggle (Monthly vs Annual) */}
+          <div className="flex flex-col items-center space-y-4">
+            <div className="inline-flex items-center gap-3 p-1.5 bg-[#0D1525] border border-slate-800 rounded-full">
+              <button
+                onClick={() => setBillingCycle('monthly')}
+                className={`px-5 py-2 rounded-full text-xs font-bold transition ${
+                  billingCycle === 'monthly'
+                    ? 'bg-slate-800 text-white shadow'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Cobrança Mensal
+              </button>
 
-                <p className="text-xs text-slate-400">
-                  Conecte-se com segurança à rede privada da VPS sem expor portas administrativas na internet pública.
-                </p>
+              <button
+                onClick={() => setBillingCycle('annual')}
+                className={`flex items-center gap-2 px-5 py-2 rounded-full text-xs font-bold transition ${
+                  billingCycle === 'annual'
+                    ? 'bg-gradient-to-r from-cyan-500 to-indigo-600 text-slate-950 shadow-lg shadow-cyan-500/25'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <span>Cobrança Anual</span>
+                <span className="px-2 py-0.5 rounded-full bg-slate-950 text-cyan-300 text-[10px] uppercase font-mono font-extrabold">
+                  20% OFF
+                </span>
+              </button>
+            </div>
 
-                <div className="p-4 bg-[#0A0F1D] rounded border border-slate-800 flex items-center gap-4">
-                  <div className="p-3 bg-white rounded-lg flex items-center justify-center">
-                    <QrCode className="w-14 h-14 text-slate-950" />
+            <p className="text-xs font-mono text-slate-400">
+              {billingCycle === 'annual' ? '🎉 Plano anual inclui IP Fixo Dedicado IPv4 grátis + Snapshots semanais.' : 'Cobrança mensal recorrente sem fidelidade. Cancele quando quiser.'}
+            </p>
+          </div>
+
+          {/* Pricing Cards Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {PLANS.map((plan) => {
+              const Icon = plan.icon;
+              const price = billingCycle === 'annual' ? plan.annualPrice : plan.monthlyPrice;
+
+              return (
+                <div
+                  key={plan.id}
+                  className={`glass-panel p-6 rounded-2xl border flex flex-col justify-between relative transition duration-300 hover:scale-[1.02] ${
+                    plan.popular
+                      ? 'border-cyan-500/60 shadow-2xl shadow-cyan-500/10 bg-[#080E1A]'
+                      : 'border-slate-800/80 hover:border-slate-700'
+                  }`}
+                >
+                  {plan.popular && (
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-gradient-to-r from-cyan-500 to-indigo-600 text-slate-950 font-mono text-[10px] uppercase font-extrabold rounded-full shadow-lg">
+                      {plan.badge}
+                    </div>
+                  )}
+
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="p-3 rounded-xl bg-cyan-500/10 text-cyan-400">
+                        <Icon className="w-6 h-6" />
+                      </div>
+                      {!plan.popular && (
+                        <span className="text-[10px] font-mono text-slate-400 bg-slate-800/50 px-2 py-0.5 rounded">
+                          {plan.badge}
+                        </span>
+                      )}
+                    </div>
+
+                    <div>
+                      <h3 className="text-lg font-bold text-white">{plan.name}</h3>
+                      <div className="mt-2 flex items-baseline gap-1">
+                        <span className="text-xs font-mono text-slate-400">R$</span>
+                        <span className="text-3xl font-extrabold text-white tracking-tight">{price}</span>
+                        <span className="text-xs text-slate-400 font-mono">/mês</span>
+                      </div>
+                      {billingCycle === 'annual' && (
+                        <p className="text-[11px] text-emerald-400 font-mono mt-1">Economia de R$ {(plan.monthlyPrice - plan.annualPrice) * 12}/ano</p>
+                      )}
+                    </div>
+
+                    {/* Specs Matrix */}
+                    <div className="p-3 rounded-xl bg-[#04070D] border border-slate-900 font-mono text-xs space-y-1.5">
+                      <div className="flex items-center justify-between text-slate-300">
+                        <span className="text-slate-500">vCPU:</span>
+                        <span className="font-bold text-cyan-400">{plan.cpu}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-slate-300">
+                        <span className="text-slate-500">RAM:</span>
+                        <span className="font-bold text-emerald-400">{plan.ram}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-slate-300">
+                        <span className="text-slate-500">Disco SSD:</span>
+                        <span className="font-bold text-indigo-400">{plan.disk}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-slate-300">
+                        <span className="text-slate-500">Tráfego:</span>
+                        <span className="font-bold text-violet-400">{plan.bandwidth}</span>
+                      </div>
+                    </div>
+
+                    {/* Features list */}
+                    <ul className="space-y-2 text-xs text-slate-300 pt-2">
+                      {plan.features.map((feat, idx) => (
+                        <li key={idx} className="flex items-center gap-2">
+                          <Check className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                          <span>{feat}</span>
+                        </li>
+                      ))}
+                    </ul>
                   </div>
-                  <div className="space-y-1">
-                    <p className="text-xs font-bold text-white">Client Config (axion-vps-vpn.conf)</p>
-                    <p className="text-[11px] font-mono text-slate-400">IP Interno: 10.8.0.2/32</p>
+
+                  <button
+                    onClick={() => handleOpenCheckout(plan)}
+                    className={`mt-6 w-full py-3 rounded-xl font-bold text-xs transition flex items-center justify-center gap-2 ${
+                      plan.popular
+                        ? 'bg-cyan-500 hover:bg-cyan-400 text-slate-950 shadow-lg shadow-cyan-500/25'
+                        : 'bg-slate-800 hover:bg-slate-700 text-white'
+                    }`}
+                  >
+                    <span>Contratar {plan.name}</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* FAQ Accordion */}
+          <div className="max-w-3xl mx-auto space-y-4 pt-8">
+            <h3 className="text-lg font-bold text-white text-center flex items-center justify-center gap-2">
+              <HelpCircle className="w-5 h-5 text-cyan-400" />
+              <span>Perguntas Frequentes sobre a VPS Cloud AXION</span>
+            </h3>
+
+            <div className="space-y-3 font-sans text-xs">
+              {[
+                { q: 'Quanto tempo leva para a VPS ser ativada após o pagamento?', a: 'A ativação é 100% autônoma! Após a confirmação do PIX ou Cartão no AXION Pay, a VPS é provisionada em menos de 60 segundos com IP dedicado e chave SSH de acesso root.' },
+                { q: 'Posso alterar os recursos de vCPU e Memória RAM depois?', a: 'Sim! Você pode realizar upgrades instantâneos (Hot-plugging RAM e vCPU) no painel de controle sem perda de dados.' },
+                { q: 'Qual a diferença entre a infraestrutura Hostinger e ServerSpace?', a: 'A infraestrutura Hostinger Cloud possui excelente custo-benefício e rotas globais. A infraestrutura ServerSpace Enterprise utiliza volumes NVMe dedicados ideais para bancos de dados de altíssimo tráfego.' }
+              ].map((faq, i) => (
+                <div key={i} className="glass-panel p-4 rounded-xl border border-slate-800 space-y-1.5">
+                  <p className="font-bold text-white text-sm">{faq.q}</p>
+                  <p className="text-slate-400 leading-relaxed">{faq.a}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </main>
+      )}
+
+      {/* VIEW MODE 2: MY SERVERS (CLIENT PORTAL) */}
+      {viewMode === 'my-servers' && (
+        <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6 animate-fadeIn">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-bold text-white">Meus Servidores Cloud ({myServers.length})</h2>
+              <p className="text-xs text-slate-400">Gerencie suas instâncias contratadas, reinicie serviços e visualize credenciais de root.</p>
+            </div>
+            <button
+              onClick={() => setViewMode('store')}
+              className="flex items-center gap-2 px-3.5 py-2 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 hover:bg-cyan-500/20 text-xs font-semibold transition"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Contratar Nova VPS</span>
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4">
+            {myServers.map((server) => (
+              <div key={server.id} className="glass-panel p-6 rounded-2xl border border-slate-800 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800/80 pb-4">
+                  <div>
+                    <div className="flex items-center gap-3">
+                      <h3 className="text-lg font-bold text-white">{server.name}</h3>
+                      <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-mono text-[11px] font-bold">
+                        {server.status}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-400 mt-1 flex items-center gap-2 font-mono">
+                      <span>IP: <strong className="text-cyan-400">{server.ip}</strong></span>
+                      <span>•</span>
+                      <span>Engine: {server.engine}</span>
+                      <span>•</span>
+                      <span>Região: {server.region}</span>
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2">
                     <button
-                      onClick={() => showToast('Download do arquivo de configuração .conf iniciado!')}
-                      className="flex items-center gap-1.5 text-xs font-semibold text-cyan-400 hover:text-cyan-300 pt-1"
+                      onClick={() => handleCopy(`ssh root@${server.ip}`, 'Comando SSH')}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#0F172A] border border-slate-800 text-slate-300 hover:text-cyan-400 text-xs font-mono transition"
                     >
-                      <Download className="w-3.5 h-3.5" />
-                      <span>Baixar arquivo .conf</span>
+                      <Copy className="w-3.5 h-3.5" />
+                      <span>ssh root@{server.ip}</span>
+                    </button>
+                    <button
+                      onClick={() => showToast(`Reiniciando VPS ${server.name}...`)}
+                      className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium transition"
+                    >
+                      Reboot
+                    </button>
+                    <button
+                      onClick={() => setViewMode('monitor')}
+                      className="px-3.5 py-1.5 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-xs font-bold transition shadow"
+                    >
+                      Painel Monitor
                     </button>
                   </div>
                 </div>
-              </div>
-            </div>
-          </div>
-        )}
 
-        {/* TAB 5: BACKUPS */}
-        {activeTab === 'backups' && (
-          <div className="space-y-6 animate-fadeIn">
-            <div className="flex items-center justify-between">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 font-mono text-xs">
+                  <div className="p-3 bg-[#0A0F1D] rounded-xl border border-slate-800/80">
+                    <span className="text-slate-500 block text-[10px] uppercase">Plano Contratado</span>
+                    <span className="text-white font-bold">{server.plan}</span>
+                  </div>
+                  <div className="p-3 bg-[#0A0F1D] rounded-xl border border-slate-800/80">
+                    <span className="text-slate-500 block text-[10px] uppercase">Sistema Operacional</span>
+                    <span className="text-cyan-400 font-bold">{server.os}</span>
+                  </div>
+                  <div className="p-3 bg-[#0A0F1D] rounded-xl border border-slate-800/80">
+                    <span className="text-slate-500 block text-[10px] uppercase">Senha Root Temporária</span>
+                    <span className="text-slate-300 font-bold">{server.rootPass}</span>
+                  </div>
+                  <div className="p-3 bg-[#0A0F1D] rounded-xl border border-slate-800/80">
+                    <span className="text-slate-500 block text-[10px] uppercase">Uptime Registrado</span>
+                    <span className="text-emerald-400 font-bold">{server.uptime}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </main>
+      )}
+
+      {/* VIEW MODE 3: ADMIN NODE MONITOR (`vps1.axionenterprise.cloud`) */}
+      {viewMode === 'monitor' && (
+        <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 animate-fadeIn">
+          {/* Header Banner for Monitor Mode */}
+          <div className="glass-panel p-4 rounded-xl border border-indigo-500/30 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Activity className="w-5 h-5 text-indigo-400" />
               <div>
-                <h3 className="text-lg font-bold text-white">Backups & Snapshots de Disco</h3>
-                <p className="text-xs text-slate-400">Snapshots incrementais do volume NVMe de 25 GB para restauração imediata em caso de emergência.</p>
+                <span className="text-sm font-bold text-white">Monitor de Nós & Infraestrutura (`vps1.axionenterprise.cloud`)</span>
+                <p className="text-xs text-slate-400">Telemetria de kernel, terminal SSH e serviços ativos do nó Debian Primary.</p>
               </div>
+            </div>
+            <button
+              onClick={() => setViewMode('store')}
+              className="text-xs text-cyan-400 hover:text-cyan-300 font-mono flex items-center gap-1"
+            >
+              <span>Voltar para Loja VPS</span>
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
 
+          {/* Metric Cards Banner */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="glass-panel p-4 rounded-xl border border-slate-800 flex items-center justify-between">
+              <div>
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">Processador vCPU</p>
+                <p className="text-xl font-mono font-bold text-white mt-1">1 Core <span className="text-xs font-normal text-slate-400">(AMD EPYC)</span></p>
+                <div className="w-full bg-slate-800 h-1.5 rounded-full mt-2 overflow-hidden">
+                  <div className="bg-cyan-500 h-full w-[28%]" />
+                </div>
+              </div>
+              <div className="p-2.5 rounded-lg bg-cyan-500/10 text-cyan-400">
+                <Cpu className="w-6 h-6" />
+              </div>
+            </div>
+
+            <div className="glass-panel p-4 rounded-xl border border-slate-800 flex items-center justify-between">
+              <div>
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">Memória RAM</p>
+                <p className="text-xl font-mono font-bold text-white mt-1">819 MB / <span className="text-sm font-normal text-slate-400">2.0 GB</span></p>
+                <div className="w-full bg-slate-800 h-1.5 rounded-full mt-2 overflow-hidden">
+                  <div className="bg-emerald-500 h-full w-[41%]" />
+                </div>
+              </div>
+              <div className="p-2.5 rounded-lg bg-emerald-500/10 text-emerald-400">
+                <Radio className="w-6 h-6" />
+              </div>
+            </div>
+
+            <div className="glass-panel p-4 rounded-xl border border-slate-800 flex items-center justify-between">
+              <div>
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">Disco NVMe SSD</p>
+                <p className="text-xl font-mono font-bold text-white mt-1">6.8 GB / <span className="text-sm font-normal text-slate-400">25 GB</span></p>
+                <div className="w-full bg-slate-800 h-1.5 rounded-full mt-2 overflow-hidden">
+                  <div className="bg-indigo-500 h-full w-[29%]" />
+                </div>
+              </div>
+              <div className="p-2.5 rounded-lg bg-indigo-500/10 text-indigo-400">
+                <HardDrive className="w-6 h-6" />
+              </div>
+            </div>
+
+            <div className="glass-panel p-4 rounded-xl border border-slate-800 flex items-center justify-between">
+              <div>
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">Tráfego de Rede</p>
+                <p className="text-xl font-mono font-bold text-white mt-1">142.5 GB / <span className="text-sm font-normal text-slate-400">2.0 TB</span></p>
+                <div className="w-full bg-slate-800 h-1.5 rounded-full mt-2 overflow-hidden">
+                  <div className="bg-violet-500 h-full w-[7%]" />
+                </div>
+              </div>
+              <div className="p-2.5 rounded-lg bg-violet-500/10 text-violet-400">
+                <Wifi className="w-6 h-6" />
+              </div>
+            </div>
+          </div>
+
+          {/* Terminal Window Box */}
+          <div className="bg-[#04070D] border border-slate-800 rounded-xl overflow-hidden shadow-2xl">
+            <div className="bg-[#0D1424] px-4 py-2.5 border-b border-slate-800 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full bg-rose-500/80" />
+                <div className="w-3 h-3 rounded-full bg-amber-500/80" />
+                <div className="w-3 h-3 rounded-full bg-emerald-500/80" />
+                <span className="ml-2 font-mono text-xs text-slate-400">root@axion-vps:~# ssh 104.207.81.41</span>
+              </div>
+              <span className="text-[10px] font-mono px-2 py-0.5 bg-emerald-500/10 text-emerald-400 rounded border border-emerald-500/20">
+                AES-256 SSH CONNECTED
+              </span>
+            </div>
+
+            <div className="p-4 font-mono text-xs h-80 overflow-y-auto space-y-2 terminal-scanline">
+              {terminalHistory.map((item, idx) => (
+                <div key={idx} className={
+                  item.type === 'system' ? 'text-slate-500' :
+                  item.type === 'info' ? 'text-cyan-400 font-semibold' :
+                  item.type === 'input' ? 'text-emerald-400 font-bold' :
+                  item.type === 'error' ? 'text-rose-400' : 'text-slate-300'
+                }>
+                  {item.text}
+                </div>
+              ))}
+              <div ref={terminalEndRef} />
+            </div>
+
+            <form onSubmit={(e) => { e.preventDefault(); if (terminalInput.trim()) { executeCommand(terminalInput.trim()); setTerminalInput(''); } }} className="p-2 bg-[#080C14] border-t border-slate-800 flex items-center gap-2">
+              <span className="font-mono text-xs text-emerald-400 pl-2">root@axion-vps:~#</span>
+              <input
+                type="text"
+                value={terminalInput}
+                onChange={(e) => setTerminalInput(e.target.value)}
+                placeholder="Digite um comando bash..."
+                className="flex-1 bg-transparent text-xs font-mono text-white focus:outline-none placeholder-slate-600"
+              />
               <button
-                onClick={() => showToast('Criando novo Snapshot instantâneo do sistema...')}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-xs font-bold transition shadow-lg shadow-cyan-500/20"
+                type="submit"
+                className="px-3 py-1 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs rounded transition"
               >
-                <HardDrive className="w-4 h-4" />
-                <span>Criar Snapshot Agora</span>
+                Enviar
               </button>
-            </div>
-
-            <div className="glass-panel rounded-xl border border-slate-800 overflow-hidden">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-[#0D1525] text-slate-400 uppercase font-mono border-b border-slate-800">
-                  <tr>
-                    <th className="p-4">Identificador</th>
-                    <th className="p-4">Tipo</th>
-                    <th className="p-4">Tamanho</th>
-                    <th className="p-4">Data de Criação</th>
-                    <th className="p-4 text-right">Ação</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-800/60 font-mono text-slate-300">
-                  <tr className="hover:bg-slate-900/50 transition">
-                    <td className="p-4 font-sans font-bold text-white">snap-2026-07-22-auto</td>
-                    <td className="p-4 text-cyan-400">Automático (Diário)</td>
-                    <td className="p-4">6.8 GB</td>
-                    <td className="p-4">Hoje às 05:00:00</td>
-                    <td className="p-4 text-right">
-                      <button
-                        onClick={() => showToast('Iniciando restauração do snapshot snap-2026-07-22-auto...')}
-                        className="px-3 py-1 rounded bg-slate-800 hover:bg-slate-700 text-white font-sans text-xs transition"
-                      >
-                        Restaurar
-                      </button>
-                    </td>
-                  </tr>
-                  <tr className="hover:bg-slate-900/50 transition">
-                    <td className="p-4 font-sans font-bold text-white">snap-2026-07-15-pre-deploy</td>
-                    <td className="p-4 text-amber-400">Manual</td>
-                    <td className="p-4">6.5 GB</td>
-                    <td className="p-4">15 de Julho, 2026</td>
-                    <td className="p-4 text-right">
-                      <button
-                        onClick={() => showToast('Iniciando restauração do snapshot snap-2026-07-15-pre-deploy...')}
-                        className="px-3 py-1 rounded bg-slate-800 hover:bg-slate-700 text-white font-sans text-xs transition"
-                      >
-                        Restaurar
-                      </button>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+            </form>
           </div>
-        )}
+        </main>
+      )}
 
-        {/* TAB 6: API KEYS */}
-        {activeTab === 'apikeys' && (
-          <div className="space-y-6 animate-fadeIn">
-            <div className="glass-panel p-6 rounded-xl border border-slate-800 space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-base font-bold text-white flex items-center gap-2">
-                    <Key className="w-5 h-5 text-cyan-400" />
-                    <span>Chaves SSH Registradas (`authorized_keys`)</span>
-                  </h3>
-                  <p className="text-xs text-slate-400 mt-1">Chaves públicas autorizadas a acessar o usuário `root` via SSH.</p>
+      {/* CHECKOUT MODAL (AXION PAY INTEGRATION) */}
+      {isCheckoutOpen && selectedPlan && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 animate-fadeIn">
+          <div className="glass-panel p-6 sm:p-8 rounded-3xl border border-slate-700 max-w-lg w-full space-y-6 shadow-2xl relative">
+            <button
+              onClick={() => setIsCheckoutOpen(false)}
+              className="absolute top-4 right-4 p-2 text-slate-400 hover:text-white rounded-lg bg-slate-800/50"
+            >
+              ✕
+            </button>
+
+            <div className="space-y-1">
+              <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-400 font-bold">
+                AXION PAY CHECKOUT
+              </span>
+              <h3 className="text-xl font-bold text-white">Contratar {selectedPlan.name}</h3>
+              <p className="text-xs text-slate-400 font-mono">
+                {selectedEngine === 'hostinger' ? 'Hostinger Cloud Infra' : 'ServerSpace NVMe'} • {selectedOS.toUpperCase()} • {selectedRegion.toUpperCase()}
+              </p>
+            </div>
+
+            <div className="p-4 bg-[#04070D] rounded-2xl border border-slate-800 space-y-3 font-mono text-xs">
+              <div className="flex items-center justify-between text-slate-300">
+                <span>Plano Escolhido:</span>
+                <span className="font-bold text-white">{selectedPlan.name}</span>
+              </div>
+              <div className="flex items-center justify-between text-slate-300">
+                <span>Ciclo de Cobrança:</span>
+                <span className="text-cyan-400">{billingCycle === 'annual' ? 'Anual (20% OFF)' : 'Mensal'}</span>
+              </div>
+              <div className="flex items-center justify-between text-slate-300 border-t border-slate-900 pt-2 text-sm font-bold">
+                <span>Total a pagar:</span>
+                <span className="text-emerald-400">R$ {billingCycle === 'annual' ? selectedPlan.annualPrice : selectedPlan.monthlyPrice}/mês</span>
+              </div>
+            </div>
+
+            {/* Simulated PIX QR Code */}
+            <div className="p-4 bg-white rounded-2xl flex flex-col items-center justify-center space-y-2 text-slate-950">
+              <QrCode className="w-32 h-32" />
+              <span className="font-mono text-[10px] font-bold tracking-wider">PIX INSTANTÂNEO AXION PAY</span>
+            </div>
+
+            <button
+              onClick={handleConfirmPayment}
+              className="w-full py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 text-slate-950 font-bold text-sm hover:from-emerald-400 hover:to-cyan-400 transition shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2"
+            >
+              <Zap className="w-4 h-4" />
+              <span>Simular Pagamento & Iniciar Provisionamento</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* AUTO-PROVISIONING MODAL */}
+      {isProvisioning && (
+        <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-lg flex items-center justify-center p-4 animate-fadeIn">
+          <div className="glass-panel p-8 rounded-3xl border border-cyan-500/40 max-w-xl w-full space-y-6 text-center shadow-2xl">
+            
+            {provisionStep < 4 ? (
+              <div className="space-y-6 py-4">
+                <div className="w-16 h-16 rounded-2xl bg-cyan-500/10 border border-cyan-500/40 text-cyan-400 flex items-center justify-center mx-auto animate-spin">
+                  <RotateCw className="w-8 h-8" />
                 </div>
+
+                <div className="space-y-2">
+                  <h3 className="text-xl font-bold text-white">Provisionando sua VPS Cloud...</h3>
+                  <p className="text-xs font-mono text-cyan-300">Etapa {provisionStep} de 3 — Por favor aguarde alguns segundos.</p>
+                </div>
+
+                {/* Progress Steps */}
+                <div className="space-y-2 text-xs font-mono text-left bg-[#04070D] p-4 rounded-2xl border border-slate-900">
+                  <div className={`flex items-center gap-2 ${provisionStep >= 1 ? 'text-emerald-400' : 'text-slate-600'}`}>
+                    <CheckCircle2 className="w-4 h-4 shrink-0" />
+                    <span>[1/3] Pagamento confirmado & Autenticando na API Hostinger/ServerSpace</span>
+                  </div>
+                  <div className={`flex items-center gap-2 ${provisionStep >= 2 ? 'text-emerald-400' : 'text-slate-600'}`}>
+                    <CheckCircle2 className="w-4 h-4 shrink-0" />
+                    <span>[2/3] Alocando sub-rede IPv4 dedicada e rotas BGP</span>
+                  </div>
+                  <div className={`flex items-center gap-2 ${provisionStep >= 3 ? 'text-emerald-400' : 'text-slate-600'}`}>
+                    <CheckCircle2 className="w-4 h-4 shrink-0" />
+                    <span>[3/3] Instalando imagem do SO e injetando chaves SSH `root`</span>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              /* Step 4: SUCCESS */
+              <div className="space-y-6 py-2 animate-fadeIn">
+                <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/40 text-emerald-400 flex items-center justify-center mx-auto shadow-lg shadow-emerald-500/20">
+                  <CheckCircle2 className="w-8 h-8" />
+                </div>
+
+                <div className="space-y-1">
+                  <h3 className="text-2xl font-extrabold text-white">VPS Provisionada com Sucesso! 🎉</h3>
+                  <p className="text-xs text-slate-400">Sua instância está online e pronta para receber tráfego.</p>
+                </div>
+
+                {provisionedCredentials && (
+                  <div className="p-4 bg-[#04070D] rounded-2xl border border-slate-800 text-left font-mono text-xs space-y-2">
+                    <div className="flex items-center justify-between border-b border-slate-900 pb-2">
+                      <span className="text-slate-500">Endereço IP:</span>
+                      <span className="text-cyan-400 font-bold">{provisionedCredentials.ip}</span>
+                    </div>
+                    <div className="flex items-center justify-between border-b border-slate-900 pb-2">
+                      <span className="text-slate-500">Usuário SSH:</span>
+                      <span className="text-white font-bold">root</span>
+                    </div>
+                    <div className="flex items-center justify-between border-b border-slate-900 pb-2">
+                      <span className="text-slate-500">Senha Root:</span>
+                      <span className="text-emerald-400 font-bold">{provisionedCredentials.rootPass}</span>
+                    </div>
+                    <div className="flex items-center justify-between pt-1">
+                      <span className="text-slate-500">Comando de Acesso:</span>
+                      <button
+                        onClick={() => handleCopy(`ssh root@${provisionedCredentials.ip}`, 'Comando SSH')}
+                        className="text-cyan-300 font-bold hover:underline flex items-center gap-1"
+                      >
+                        <span>ssh root@{provisionedCredentials.ip}</span>
+                        <Copy className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 <button
-                  onClick={() => showToast('Adição de nova chave SSH simulada.')}
-                  className="px-3 py-1.5 rounded bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 hover:bg-cyan-500/20 text-xs font-semibold transition"
+                  onClick={() => { setIsProvisioning(false); setViewMode('my-servers'); }}
+                  className="w-full py-3 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs transition"
                 >
-                  + Adicionar Chave SSH
+                  Ir para Meus Servidores
                 </button>
               </div>
+            )}
 
-              <div className="p-4 bg-[#0A0F1D] rounded-lg border border-slate-800 font-mono text-xs flex items-center justify-between">
-                <div>
-                  <p className="text-white font-bold">axion-dev-ed25519-master</p>
-                  <p className="text-slate-400 text-[11px] truncate max-w-lg mt-0.5">ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIG... axion-enterprise-dev</p>
-                </div>
-                <span className="text-emerald-400 text-xs font-bold">ACTIVE</span>
-              </div>
-            </div>
-
-            <div className="glass-panel p-6 rounded-xl border border-slate-800 space-y-4">
-              <h3 className="text-base font-bold text-white flex items-center gap-2">
-                <FileText className="w-5 h-5 text-indigo-400" />
-                <span>Tokens da API REST AXION VPS</span>
-              </h3>
-              <p className="text-xs text-slate-400">Tokens Bearer para automação CI/CD do GitHub Actions e scripts externos de provisionamento.</p>
-
-              <div className="p-4 bg-[#0A0F1D] rounded-lg border border-slate-800 font-mono text-xs flex items-center justify-between">
-                <div>
-                  <p className="text-white font-bold">Vercel & GitHub Actions Deploy Token</p>
-                  <p className="text-slate-400 text-[11px] mt-0.5">axion_vps_tok_8f91a...991</p>
-                </div>
-                <button
-                  onClick={() => showToast('Token copiado com sucesso!')}
-                  className="px-3 py-1 rounded bg-slate-800 hover:bg-slate-700 text-white font-sans text-xs transition"
-                >
-                  Copiar Token
-                </button>
-              </div>
-            </div>
           </div>
-        )}
-
-      </main>
+        </div>
+      )}
 
       {/* Footer */}
-      <footer className="border-t border-[#151D2A] bg-[#050811] py-4 mt-auto">
-        <div className="max-w-7xl mx-auto px-4 text-center text-xs text-slate-500 font-mono">
-          AXION VPS Cloud Management Platform v1.0 • SLA Guaranteed 99.98% • Powered by AXION Enterprise Architecture
+      <footer className="border-t border-[#151D2A] bg-[#050811] py-6 mt-auto">
+        <div className="max-w-7xl mx-auto px-4 text-center space-y-2">
+          <p className="text-xs text-slate-400 font-mono">
+            AXION VPS Cloud Platform v2.0 • Powered by Hostinger & ServerSpace Infrastructure
+          </p>
+          <p className="text-[11px] text-slate-600 font-sans">
+            © 2026 AXION Enterprise. Todos os direitos reservados.
+          </p>
         </div>
       </footer>
+
     </div>
   );
 }
