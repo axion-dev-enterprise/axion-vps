@@ -22,6 +22,7 @@ import {
   Radio,
   ExternalLink,
   ChevronRight,
+  ArrowRight,
   Database,
   Sliders,
   AlertTriangle,
@@ -41,7 +42,6 @@ import {
   Sparkles,
   CreditCard,
   Building2,
-  ServerOff,
   SlidersHorizontal,
   HelpCircle,
   MessageSquare
