@@ -51,7 +51,7 @@ export default function App() {
   // Navigation & View State
   const [viewMode, setViewMode] = useState('store'); // 'store' | 'my-servers' | 'monitor'
   const [billingCycle, setBillingCycle] = useState('annual'); // 'monthly' | 'annual'
-  const [selectedEngine, setSelectedEngine] = useState('hostinger'); // 'hostinger' | 'serverspace'
+  const [selectedEngine, setSelectedEngine] = useState('axion-nvme'); // 'axion-nvme' | 'axion-enterprise'
   const [selectedOS, setSelectedOS] = useState('debian');
   const [selectedRegion, setSelectedRegion] = useState('br');
   const [selectedPlan, setSelectedPlan] = useState(null);
@@ -81,7 +81,7 @@ export default function App() {
       ip: '104.207.81.41',
       plan: 'VPS Performance (2 vCPU / 4 GB)',
       os: 'Debian 12 Bookworm',
-      engine: 'Hostinger Cloud',
+      engine: 'AXION NVMe Cloud',
       region: 'EUA (US-East)',
       status: 'ONLINE',
       uptime: '99.98%',
@@ -278,7 +278,7 @@ export default function App() {
         ip: newIp,
         plan: selectedPlan.name,
         os: selectedOS === 'debian' ? 'Debian 12 Bookworm' : selectedOS === 'ubuntu' ? 'Ubuntu 24.04 LTS' : 'AlmaLinux 9',
-        engine: selectedEngine === 'hostinger' ? 'Hostinger Cloud' : 'ServerSpace Enterprise',
+        engine: selectedEngine === 'axion-nvme' ? 'AXION NVMe Cloud' : 'AXION Dedicated NVMe',
         region: selectedRegion === 'br' ? 'Brasil (São Paulo)' : selectedRegion === 'us' ? 'EUA (Virginia)' : 'Alemanha (Frankfurt)',
         status: 'ONLINE',
         uptime: '100%',
@@ -363,7 +363,7 @@ export default function App() {
                   Cloud Platform
                 </span>
               </div>
-              <p className="text-[11px] text-slate-400">Infraestrutura Hostinger & ServerSpace Enterprise</p>
+              <p className="text-[11px] text-slate-400">Infraestrutura Cloud AXION Enterprise</p>
             </div>
           </div>
 
@@ -390,7 +390,7 @@ export default function App() {
               }`}
             >
               <UserCheck className="w-3.5 h-3.5" />
-              <span>Meus Servidores ({myServers.length})</span>
+              <span>Meus Servidores</span>
               {!isAuthenticated && <Lock className="w-3 h-3 text-amber-400 ml-0.5" />}
             </button>
 
@@ -467,7 +467,7 @@ export default function App() {
             </h1>
 
             <p className="text-slate-300 text-sm sm:text-base max-w-2xl mx-auto leading-relaxed">
-              Desenvolvido para escalar aplicações, bancos de dados, microsserviços e contêineres Docker na infraestrutura robusta da **Hostinger** e **ServerSpace**.
+              Desenvolvido para escalar aplicações, bancos de dados, microsserviços e contêineres Docker na infraestrutura de alta performance da **AXION Enterprise Cloud**.
             </p>
 
             <div className="flex flex-wrap items-center justify-center gap-6 text-xs text-slate-400 font-mono pt-2">
@@ -504,27 +504,27 @@ export default function App() {
                 <label className="text-xs font-mono font-bold text-slate-300 uppercase tracking-wider">Provedor Cloud</label>
                 <div className="grid grid-cols-2 gap-2">
                   <button
-                    onClick={() => setSelectedEngine('hostinger')}
+                    onClick={() => setSelectedEngine('axion-nvme')}
                     className={`p-3 rounded-xl border text-xs font-semibold flex flex-col items-center gap-1.5 transition ${
-                      selectedEngine === 'hostinger'
+                      selectedEngine === 'axion-nvme'
                         ? 'bg-cyan-500/10 border-cyan-500 text-cyan-300 shadow-md shadow-cyan-500/10'
                         : 'bg-[#0A0F1D] border-slate-800 text-slate-400 hover:border-slate-700'
                     }`}
                   >
                     <Building2 className="w-5 h-5 text-cyan-400" />
-                    <span>Hostinger Cloud</span>
+                    <span>AXION NVMe Cloud</span>
                   </button>
 
                   <button
-                    onClick={() => setSelectedEngine('serverspace')}
+                    onClick={() => setSelectedEngine('axion-enterprise')}
                     className={`p-3 rounded-xl border text-xs font-semibold flex flex-col items-center gap-1.5 transition ${
-                      selectedEngine === 'serverspace'
+                      selectedEngine === 'axion-enterprise'
                         ? 'bg-indigo-500/10 border-indigo-500 text-indigo-300 shadow-md shadow-indigo-500/10'
                         : 'bg-[#0A0F1D] border-slate-800 text-slate-400 hover:border-slate-700'
                     }`}
                   >
                     <Server className="w-5 h-5 text-indigo-400" />
-                    <span>ServerSpace NVMe</span>
+                    <span>AXION Dedicated NVMe</span>
                   </button>
                 </div>
               </div>
@@ -709,7 +709,7 @@ export default function App() {
               {[
                 { q: 'Quanto tempo leva para a VPS ser ativada após o pagamento?', a: 'A ativação é 100% autônoma! Após a confirmação do PIX ou Cartão no AXION Pay, a VPS é provisionada em menos de 60 segundos com IP dedicado e chave SSH de acesso root.' },
                 { q: 'Posso alterar os recursos de vCPU e Memória RAM depois?', a: 'Sim! Você pode realizar upgrades instantâneos (Hot-plugging RAM e vCPU) no painel de controle sem perda de dados.' },
-                { q: 'Qual a diferença entre a infraestrutura Hostinger e ServerSpace?', a: 'A infraestrutura Hostinger Cloud possui excelente custo-benefício e rotas globais. A infraestrutura ServerSpace Enterprise utiliza volumes NVMe dedicados ideais para bancos de dados de altíssimo tráfego.' }
+                { q: 'Qual a diferença entre a infraestrutura AXION NVMe e AXION Dedicated?', a: 'A infraestrutura AXION NVMe possui excelente custo-benefício e rotas de alta velocidade. A infraestrutura AXION Dedicated utiliza volumes NVMe isolados em hardware Bare-Metal ideais para bancos de dados de altíssimo tráfego.' }
               ].map((faq, i) => (
                 <div key={i} className="glass-panel p-4 rounded-xl border border-slate-800 space-y-1.5">
                   <p className="font-bold text-white text-sm">{faq.q}</p>
@@ -755,7 +755,7 @@ export default function App() {
             <>
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-xl font-bold text-white">Meus Servidores Cloud ({myServers.length})</h2>
+              <h2 className="text-xl font-bold text-white">Meus Servidores Cloud</h2>
               <p className="text-xs text-slate-400">Gerencie suas instâncias contratadas, reinicie serviços e visualize credenciais de root.</p>
             </div>
             <button
@@ -1008,7 +1008,7 @@ export default function App() {
               </span>
               <h3 className="text-xl font-bold text-white">Contratar {selectedPlan.name}</h3>
               <p className="text-xs text-slate-400 font-mono">
-                {selectedEngine === 'hostinger' ? 'Hostinger Cloud Infra' : 'ServerSpace NVMe'} • {selectedOS.toUpperCase()} • {selectedRegion.toUpperCase()}
+                {selectedEngine === 'axion-nvme' ? 'AXION NVMe Engine' : 'AXION Dedicated Engine'} • {selectedOS.toUpperCase()} • {selectedRegion.toUpperCase()}
               </p>
             </div>
 
@@ -1084,7 +1084,7 @@ export default function App() {
                 <div className="space-y-2 text-xs font-mono text-left bg-[#04070D] p-4 rounded-2xl border border-slate-900">
                   <div className={`flex items-center gap-2 ${provisionStep >= 1 ? 'text-emerald-400' : 'text-slate-600'}`}>
                     <CheckCircle2 className="w-4 h-4 shrink-0" />
-                    <span>[1/3] Pagamento confirmado & Autenticando na API Hostinger/ServerSpace</span>
+                    <span>[1/3] Pagamento confirmado & Autenticando na API AXION Cloud Engine</span>
                   </div>
                   <div className={`flex items-center gap-2 ${provisionStep >= 2 ? 'text-emerald-400' : 'text-slate-600'}`}>
                     <CheckCircle2 className="w-4 h-4 shrink-0" />
@@ -1207,7 +1207,7 @@ export default function App() {
       <footer className="border-t border-[#151D2A] bg-[#050811] py-6 mt-auto">
         <div className="max-w-7xl mx-auto px-4 text-center space-y-2">
           <p className="text-xs text-slate-400 font-mono">
-            AXION VPS Cloud Platform v2.0 • Powered by Hostinger & ServerSpace Infrastructure
+            AXION VPS Cloud Platform v2.0 • AXION Enterprise Cloud Infrastructure
           </p>
           <p className="text-[11px] text-slate-600 font-sans">
             © 2026 AXION Enterprise. Todos os direitos reservados.
