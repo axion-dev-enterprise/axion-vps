@@ -56,6 +56,13 @@ export default function App() {
   const [selectedRegion, setSelectedRegion] = useState('br');
   const [selectedPlan, setSelectedPlan] = useState(null);
   
+  // Auth & Session State (auth.axionenterprise.cloud Integration)
+  const [user, setUser] = useState(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authRequiredTarget, setAuthRequiredTarget] = useState('');
+
   // Checkout & Provisioning Modals
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [isProvisioning, setIsProvisioning] = useState(false);
@@ -90,6 +97,83 @@ export default function App() {
   ]);
   const [terminalInput, setTerminalInput] = useState('');
   const terminalEndRef = useRef(null);
+
+  // Check URL Token or Cookie on Mount via auth.axionenterprise.cloud API
+  useEffect(() => {
+    const checkAuthStatus = async () => {
+      setIsAuthLoading(true);
+      try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlToken = urlParams.get('token');
+
+        if (urlToken) {
+          localStorage.setItem('axion_session_token', urlToken);
+          window.history.replaceState({}, document.title, window.location.pathname);
+        }
+
+        const token = localStorage.getItem('axion_session_token');
+
+        // Check active session via AXION Auth Server
+        const res = await fetch('https://auth.axionenterprise.cloud/api/auth/me', {
+          headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          if (data.authenticated && data.user) {
+            setUser(data.user);
+            setIsAuthenticated(true);
+          }
+        }
+      } catch (err) {
+        console.warn('AXION Auth verification check offline or offline fallback active.');
+      } finally {
+        setIsAuthLoading(false);
+      }
+    };
+
+    checkAuthStatus();
+  }, []);
+
+  const handleLoginSSO = async () => {
+    try {
+      const res = await fetch('https://auth.axionenterprise.cloud/api/auth/google/url?redirect_to=' + encodeURIComponent(window.location.href));
+      if (res.ok) {
+        const data = await res.json();
+        if (data.url) {
+          window.location.href = data.url;
+          return;
+        }
+      }
+    } catch (e) {
+      console.error('Falha ao obter URL de autenticação:', e);
+    }
+    // Fallback direct URL if fetch fails
+    window.location.href = 'https://auth.axionenterprise.cloud/api/auth/google/url?redirect_to=' + encodeURIComponent(window.location.href);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('axion_session_token');
+    setUser(null);
+    setIsAuthenticated(false);
+    setViewMode('store');
+    showToast('Sessão encerrada com sucesso no AXION VPS.');
+  };
+
+  const handleNavigateView = (targetView) => {
+    if (targetView === 'store') {
+      setViewMode('store');
+      return;
+    }
+
+    if (!isAuthenticated) {
+      setAuthRequiredTarget(targetView === 'my-servers' ? 'Meus Servidores' : 'Monitor de Nós');
+      setShowAuthModal(true);
+      return;
+    }
+
+    setViewMode(targetView);
+  };
 
   // Auto scroll terminal
   useEffect(() => {
@@ -266,7 +350,7 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           
           {/* Logo & Brand */}
-          <div className="flex items-center gap-4 cursor-pointer" onClick={() => setViewMode('store')}>
+          <div className="flex items-center gap-4 cursor-pointer" onClick={() => handleNavigateView('store')}>
             <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 via-indigo-600 to-emerald-500 flex items-center justify-center shadow-lg shadow-cyan-500/20">
               <Server className="w-5 h-5 text-white" />
             </div>
@@ -286,7 +370,7 @@ export default function App() {
           {/* Center Mode Switcher Tabs */}
           <div className="hidden md:flex items-center gap-1 p-1 bg-[#0D1525] border border-slate-800 rounded-xl">
             <button
-              onClick={() => setViewMode('store')}
+              onClick={() => handleNavigateView('store')}
               className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition ${
                 viewMode === 'store'
                   ? 'bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/20'
@@ -298,7 +382,7 @@ export default function App() {
             </button>
 
             <button
-              onClick={() => setViewMode('my-servers')}
+              onClick={() => handleNavigateView('my-servers')}
               className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition ${
                 viewMode === 'my-servers'
                   ? 'bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/20'
@@ -307,10 +391,11 @@ export default function App() {
             >
               <UserCheck className="w-3.5 h-3.5" />
               <span>Meus Servidores ({myServers.length})</span>
+              {!isAuthenticated && <Lock className="w-3 h-3 text-amber-400 ml-0.5" />}
             </button>
 
             <button
-              onClick={() => setViewMode('monitor')}
+              onClick={() => handleNavigateView('monitor')}
               className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition ${
                 viewMode === 'monitor'
                   ? 'bg-indigo-600 text-white shadow-md'
@@ -319,10 +404,11 @@ export default function App() {
             >
               <Activity className="w-3.5 h-3.5" />
               <span>Monitor de Nós (vps1)</span>
+              {!isAuthenticated && <Lock className="w-3 h-3 text-amber-400 ml-0.5" />}
             </button>
           </div>
 
-          {/* Right Action & WhatsApp Button */}
+          {/* Right Action & WhatsApp / Auth Button */}
           <div className="flex items-center gap-3">
             <a
               href="https://wa.me/5511924765169?text=Ol%C3%A1!%20Gostaria%20de%20d%C3%BAvidas%20sobre%20os%20planos%20VPS%20AXION."
@@ -334,13 +420,32 @@ export default function App() {
               <span className="hidden sm:inline">Suporte 24/7</span>
             </a>
 
-            <button
-              onClick={() => showToast('Login AXION Auth ativo. Bem-vindo(a)!')}
-              className="flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-[#0F172A] border border-slate-800 text-slate-300 hover:border-cyan-500/50 hover:text-white transition text-xs font-medium"
-            >
-              <div className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-              <span>AXION Account</span>
-            </button>
+            {isAuthenticated ? (
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 px-3 py-1 rounded-lg bg-[#0F172A] border border-cyan-500/30">
+                  {user?.picture ? (
+                    <img src={user.picture} alt={user.name} className="w-5 h-5 rounded-full" />
+                  ) : (
+                    <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  )}
+                  <span className="text-xs font-medium text-slate-200">{user?.name || user?.email || 'Usuário Autenticado'}</span>
+                </div>
+                <button
+                  onClick={handleLogout}
+                  className="px-2.5 py-1.5 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-300 hover:bg-rose-500/20 text-xs font-semibold transition"
+                >
+                  Sair
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={handleLoginSSO}
+                className="flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-cyan-500 to-indigo-600 text-slate-950 font-bold hover:from-cyan-400 hover:to-indigo-500 transition text-xs shadow-lg shadow-cyan-500/20"
+              >
+                <Lock className="w-3.5 h-3.5" />
+                <span>Entrar com AXION Auth</span>
+              </button>
+            )}
           </div>
 
         </div>
@@ -619,6 +724,35 @@ export default function App() {
       {/* VIEW MODE 2: MY SERVERS (CLIENT PORTAL) */}
       {viewMode === 'my-servers' && (
         <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6 animate-fadeIn">
+          {!isAuthenticated ? (
+            <div className="glass-panel p-12 rounded-3xl border border-amber-500/30 text-center max-w-xl mx-auto space-y-6 my-12">
+              <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center mx-auto shadow-lg shadow-amber-500/10">
+                <Lock className="w-8 h-8" />
+              </div>
+              <div className="space-y-2">
+                <h2 className="text-2xl font-extrabold text-white">Conteúdo Reservado a Clientes Autenticados</h2>
+                <p className="text-xs text-slate-300 leading-relaxed">
+                  Para visualizar seus servidores cloud ativos, chaves SSH e senhas de acesso root, você precisa estar autenticado com sua **AXION Account**.
+                </p>
+              </div>
+              <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+                <button
+                  onClick={handleLoginSSO}
+                  className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-600 text-slate-950 font-bold text-xs hover:from-cyan-400 hover:to-indigo-500 transition shadow-lg shadow-cyan-500/20 flex items-center justify-center gap-2"
+                >
+                  <Lock className="w-4 h-4" />
+                  <span>Entrar com AXION Auth (Google SSO)</span>
+                </button>
+                <button
+                  onClick={() => setViewMode('store')}
+                  className="w-full sm:w-auto px-5 py-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition"
+                >
+                  Voltar para Loja
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-xl font-bold text-white">Meus Servidores Cloud ({myServers.length})</h2>
@@ -697,12 +831,43 @@ export default function App() {
               </div>
             ))}
           </div>
+          </>
+          )}
         </main>
       )}
 
       {/* VIEW MODE 3: ADMIN NODE MONITOR (`vps1.axionenterprise.cloud`) */}
       {viewMode === 'monitor' && (
         <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 animate-fadeIn">
+          {!isAuthenticated ? (
+            <div className="glass-panel p-12 rounded-3xl border border-indigo-500/30 text-center max-w-xl mx-auto space-y-6 my-12">
+              <div className="w-16 h-16 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-400 flex items-center justify-center mx-auto shadow-lg shadow-indigo-500/10">
+                <Activity className="w-8 h-8" />
+              </div>
+              <div className="space-y-2">
+                <h2 className="text-2xl font-extrabold text-white">Monitor de Nós Restrito</h2>
+                <p className="text-xs text-slate-300 leading-relaxed">
+                  A telemetria do nó Debian Primary (`vps1.axionenterprise.cloud`) e o console interativo SSH estão restritos a administradores e clientes autenticados.
+                </p>
+              </div>
+              <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+                <button
+                  onClick={handleLoginSSO}
+                  className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-gradient-to-r from-cyan-500 via-indigo-600 to-emerald-500 text-slate-950 font-bold text-xs hover:opacity-95 transition shadow-lg shadow-cyan-500/20 flex items-center justify-center gap-2"
+                >
+                  <Lock className="w-4 h-4" />
+                  <span>Autenticar via AXION Auth</span>
+                </button>
+                <button
+                  onClick={() => setViewMode('store')}
+                  className="w-full sm:w-auto px-5 py-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition"
+                >
+                  Voltar para Loja
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
           {/* Header Banner for Monitor Mode */}
           <div className="glass-panel p-4 rounded-xl border border-indigo-500/30 flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -821,6 +986,8 @@ export default function App() {
               </button>
             </form>
           </div>
+          </>
+          )}
         </main>
       )}
 
@@ -867,11 +1034,31 @@ export default function App() {
             </div>
 
             <button
-              onClick={handleConfirmPayment}
-              className="w-full py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 text-slate-950 font-bold text-sm hover:from-emerald-400 hover:to-cyan-400 transition shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2"
+              onClick={() => {
+                fetch('/api/stripe/checkout', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    planId: selectedPlan.id || selectedPlan.name.toLowerCase().replace('axion vps ', ''),
+                    billingCycle
+                  })
+                })
+                .then(res => res.json())
+                .then(data => { if (data.url) window.location.href = data.url; })
+                .catch(err => handleConfirmPayment());
+              }}
+              className="w-full py-3.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold text-sm hover:from-blue-500 hover:to-indigo-500 transition shadow-lg shadow-indigo-500/20 flex items-center justify-center gap-2"
             >
-              <Zap className="w-4 h-4" />
-              <span>Simular Pagamento & Iniciar Provisionamento</span>
+              <CreditCard className="w-4 h-4" />
+              <span>Pagar via Stripe (Cartão / Assinatura Recorrente)</span>
+            </button>
+
+            <button
+              onClick={handleConfirmPayment}
+              className="w-full py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs transition flex items-center justify-center gap-2"
+            >
+              <Zap className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Simular Pagamento Instantâneo & Iniciar Provisionamento</span>
             </button>
           </div>
         </div>
@@ -957,6 +1144,61 @@ export default function App() {
               </div>
             )}
 
+          </div>
+        </div>
+      )}
+
+      {/* AUTHENTICATION REQUIRED MODAL (SSO GATED CONTENT) */}
+      {showAuthModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4 animate-fadeIn">
+          <div className="glass-panel p-6 sm:p-8 rounded-3xl border border-cyan-500/40 max-w-md w-full text-center space-y-6 shadow-2xl relative">
+            <button
+              onClick={() => setShowAuthModal(false)}
+              className="absolute top-4 right-4 p-2 text-slate-400 hover:text-white rounded-lg bg-slate-800/50"
+            >
+              ✕
+            </button>
+
+            <div className="w-16 h-16 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 flex items-center justify-center mx-auto shadow-lg shadow-cyan-500/10">
+              <Lock className="w-8 h-8 text-cyan-400" />
+            </div>
+
+            <div className="space-y-2">
+              <span className="text-[10px] uppercase font-mono px-2.5 py-0.5 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 font-bold">
+                AUTENTICAÇÃO NECESSÁRIA
+              </span>
+              <h3 className="text-xl font-extrabold text-white">Acesse com sua AXION Account</h3>
+              <p className="text-xs text-slate-300 leading-relaxed">
+                A aba <strong className="text-cyan-300">{authRequiredTarget}</strong> exibe dados confidenciais e telemetria restrita de infraestrutura. Faça login para continuar.
+              </p>
+            </div>
+
+            <div className="p-4 bg-[#04070D] rounded-2xl border border-slate-850 text-left font-mono text-xs space-y-2 text-slate-400">
+              <div className="flex items-center gap-2 text-emerald-400 font-semibold">
+                <Shield className="w-4 h-4 shrink-0" />
+                <span>SSO Seguro: auth.axionenterprise.cloud</span>
+              </div>
+              <p className="text-[11px] leading-normal text-slate-400">
+                Suas credenciais são gerenciadas centralmente pelo serviço oficial de autenticação AXION com suporte a Google OAuth 2.0.
+              </p>
+            </div>
+
+            <div className="space-y-3 pt-1">
+              <button
+                onClick={handleLoginSSO}
+                className="w-full py-3.5 rounded-xl bg-gradient-to-r from-cyan-500 via-indigo-600 to-emerald-500 text-slate-950 font-bold text-xs hover:opacity-95 transition shadow-lg shadow-cyan-500/25 flex items-center justify-center gap-2"
+              >
+                <Lock className="w-4 h-4" />
+                <span>Fazer Login com Google (AXION Auth)</span>
+              </button>
+
+              <button
+                onClick={() => setShowAuthModal(false)}
+                className="w-full py-2.5 rounded-xl bg-slate-850 hover:bg-slate-800 text-slate-400 text-xs font-semibold transition"
+              >
+                Continuar Navegando na Loja
+              </button>
+            </div>
           </div>
         </div>
       )}
