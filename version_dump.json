@@ -1,0 +1,9 @@
+﻿{
+    "projectName":  "axion-vps",
+    "version":  "1.0.1",
+    "liveUrl":  "https://vps.axionenterprise.cloud",
+    "environment":  "production",
+    "commitHash":  "08c6890",
+    "buildTimestamp":  "2026-07-23T11:59:46Z",
+    "status":  "SUCCESS"
+}

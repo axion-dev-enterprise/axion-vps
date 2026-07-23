@@ -1,6 +1,6 @@
 {
   "name": "axion-vps",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "type": "module",
   "description": "Painel de Gestão e Provisionamento Cloud VPS AXION Enterprise",
